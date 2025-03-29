@@ -4,6 +4,7 @@ import TextEditor from "./TextEditor";
 import AuthPage from "./Auth";
 
 function App() {
+  const API_URL = "https://letter-editor-backend-fh3x.onrender.com";
   const [user, setUser] = useState(null);
   const [text, setText] = useState("");
   const [drafts, setDrafts] = useState([]);
@@ -12,9 +13,21 @@ function App() {
 
   // Load drafts from local storage on component mount
   useEffect(() => {
-    const savedDrafts = JSON.parse(localStorage.getItem('drafts') || '[]');
-    setDrafts(savedDrafts);
-  }, []);
+    try {
+        const savedDrafts = JSON.parse(localStorage.getItem("drafts") || "[]");
+        if (Array.isArray(savedDrafts)) {
+            setDrafts(savedDrafts);
+        } else {
+            console.warn("Drafts in local storage are invalid, resetting...");
+            setDrafts([]);
+            localStorage.removeItem("drafts");
+        }
+    } catch (error) {
+        console.error("Error loading drafts:", error);
+        setDrafts([]);
+    }
+}, []); // Runs only once on mount
+
 
   const handleLogout = async () => {
     await logout();
@@ -29,7 +42,7 @@ function App() {
     }
 
     try {
-      const response = await fetch("http://localhost:5000/save-letter", {
+      const response = await fetch(`${API_URL}/save-letter`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -148,7 +161,7 @@ function App() {
               <p>Welcome, {user.displayName}</p>
               <TextEditor 
                 value={selectedDraftId? text.textValue : text} 
-                onTextChange={setText} 
+                onTextChange={(newText) => setText(newText)} 
                 className="" 
               />
             </div>

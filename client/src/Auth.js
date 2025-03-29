@@ -1,62 +1,67 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { signInWithGoogle, signUpWithEmail, signInWithEmail } from "./firebase";
 import { FaGoogle } from "react-icons/fa";
 
 function AuthPage({ setUser }) {
+  const API_URL = "https://letter-editor-backend-fh3x.onrender.com";
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
 
-  // 🔹 Check token expiration
-useEffect(() => {
+  //  Check token expiration
+  useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-        const decoded = JSON.parse(atob(token.split(".")[1])); // Decode JWT
-        if (decoded.exp * 1000 < Date.now()) {
-            localStorage.removeItem("token"); // Expired token? Remove it
-            setUser(null);
-        } else {
-            setUser({ token });
-        }
+      const decoded = JSON.parse(atob(token.split(".")[1])); // Decode JWT
+      if (decoded.exp * 1000 < Date.now()) {
+        localStorage.removeItem("token");
+        setUser(null);
+      } else {
+        setUser({ token });
+      }
     }
-}, []);
+  }, [setUser]);
 
-  // 🔹 Call Backend to generate JWT after Google Sign-In
-  const handleGoogleLogin = async (e) => {
-    e.preventDefault();
+  //  Handle API Call for Authentication
+  const authenticateUser = useCallback(async (user, method) => {
     try {
-      const loggedInUser = await signInWithGoogle();
-      //console.log("userdata", loggedInUser.user);
-      //console.log("User Info:", loggedInUser);
-      //console.log("OAuth Token:", loggedInUser.token); // Check if the token is valid
-      localStorage.setItem("accessToken", loggedInUser.token); // Store JWT
-
-      const response = await fetch("http://localhost:5000/login", {
+      const response = await fetch(`${API_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-            uid: loggedInUser.user.uid, 
-            email: loggedInUser.user.email,
-            token: loggedInUser.token // Pass the token to backend
+        body: JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          token: user.token, // Pass token if available
         }),
       });
       const data = await response.json();
 
-     // console.log(data);
       if (response.ok) {
-        localStorage.setItem("token", data.token); // Store JWT
-        setUser(loggedInUser.user);
+        localStorage.setItem("token", data.token);
+        setUser(user);
       } else {
-        setError(data.error || "Google sign-in failed.");
+        setError(data.error || `${method} failed.`);
       }
+    } catch (err) {
+      setError(`${method} failed. Please try again.`);
+    }
+  }, [setUser]);
+
+  //  Google Sign-In
+  const handleGoogleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      const loggedInUser = await signInWithGoogle();
+      localStorage.setItem("accessToken", loggedInUser.token);
+      authenticateUser(loggedInUser.user, "Google sign-in");
     } catch (err) {
       setError("Google sign-in failed. Please try again.");
     }
   };
 
-  // 🔹 Sign Up with Email & Get JWT
+  // Email Sign-Up
   const handleEmailSignUp = async (e) => {
     e.preventDefault();
     setError("");
@@ -73,44 +78,20 @@ useEffect(() => {
 
     try {
       const newUser = await signUpWithEmail(email, password);
-      const response = await fetch("http://localhost:5000/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid: newUser.uid, email: newUser.email }),
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        localStorage.setItem("token", data.token); // Store JWT
-        setUser(newUser);
-      } else {
-        setError(data.error || "Sign up failed.");
-      }
+      authenticateUser(newUser, "Sign-up");
     } catch (err) {
-      setError(err.message || "Sign up failed. Please try again.");
+      setError(err.message || "Sign-up failed. Please try again.");
     }
   };
 
-  // 🔹 Sign In with Email & Get JWT
+  //  Email Sign-In
   const handleEmailSignIn = async (e) => {
     e.preventDefault();
     try {
       const loggedInUser = await signInWithEmail(email, password);
-      const response = await fetch("http://localhost:5000/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid: loggedInUser.uid, email: loggedInUser.email }),
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        localStorage.setItem("token", data.token); // Store JWT
-        setUser(loggedInUser);
-      } else {
-        setError(data.error || "Sign in failed.");
-      }
+      authenticateUser(loggedInUser, "Sign-in");
     } catch (err) {
-      setError("Sign in failed. Please check your credentials.");
+      setError("Sign-in failed. Please check your credentials.");
     }
   };
 
@@ -192,11 +173,9 @@ useEffect(() => {
                   <div className="w-full border-t border-gray-300"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">
-                    Or continue with
-                  </span>
+                  <span className="px-2 bg-white text-gray-500">Or continue with</span>
                 </div>
-               </div>
+              </div>
             </div>
 
             <div className="mt-6 flex align-center justify-center">
@@ -213,7 +192,7 @@ useEffect(() => {
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               {isSignUp ? "Already have an account?" : "Don't have an account?"}
-              <button onClick={() => setIsSignUp(!isSignUp)} className="font-medium text-indigo-600">
+              <button onClick={() => setIsSignUp(!isSignUp)} className="font-medium text-indigo-600 ml-1">
                 {isSignUp ? "Sign In" : "Sign Up"}
               </button>
             </p>

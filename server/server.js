@@ -11,7 +11,17 @@ const PORT = process.env.PORT;
 
 app.use(express.json());
 app.use(bodyParser.json()); 
-app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+const allowedOrigins = [
+  "http://localhost:3000",  // Local development
+  "https://letter-editor.netlify.app"  // Deployed frontend
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,  // If you're using cookies or authorization headers
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 app.use((req, res, next) => {
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
   res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
